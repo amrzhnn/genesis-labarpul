@@ -1,0 +1,1889 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ПРОЯВКА // Дневник атмосферы дня</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <style>
+    :root {
+      --bg-obsidian: #0d0c0b;
+      --bg-surface: #161412;
+      --bg-elevated: #1f1c19;
+      --ink-primary: #f4f1ea;
+      --ink-secondary: #a39e93;
+      --ink-dim: #5c5850;
+      --line-subtle: rgba(244, 241, 234, 0.11);
+      --accent: #e5a93c;
+      --accent-soft: rgba(229, 169, 60, 0.15);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-obsidian);
+      color: var(--ink-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(229, 169, 60, 0.06), transparent 40%),
+        radial-gradient(rgba(244, 241, 234, 0.045) 1px, transparent 0);
+      background-size: 100% 100%, 26px 26px;
+    }
+
+    .app {
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 24px 22px 72px;
+    }
+
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line-subtle);
+      margin-bottom: 26px;
+    }
+
+    .kicker {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .title {
+      font-family: var(--font-serif);
+      font-size: 32px;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 9px 15px;
+      border-radius: 999px;
+      border: 1px solid var(--line-subtle);
+      background: var(--bg-surface);
+      color: var(--ink-primary);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: rgba(244, 241, 234, 0.34);
+      background: var(--bg-elevated);
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #120f0a;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #f0b84d;
+    }
+
+    .btn-active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .observatory-grid {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1020px) {
+      .observatory-grid { grid-template-columns: 1fr; }
+    }
+
+    .atlas-panel, .folders-shelf {
+      background: var(--bg-surface);
+      border: 1px solid var(--line-subtle);
+      border-radius: 24px;
+      padding: 22px;
+    }
+
+    .atlas-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .month-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .month-title {
+      font-family: var(--font-serif);
+      font-size: 26px;
+      font-style: italic;
+      min-width: 190px;
+      text-align: center;
+    }
+
+    .weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-dim);
+      margin-bottom: 10px;
+    }
+
+    .calendar-map {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 11px;
+    }
+
+    .day-node {
+      aspect-ratio: 1 / 1;
+      border-radius: 16px;
+      border: 1px solid rgba(244, 241, 234, 0.05);
+      background: rgba(255, 255, 255, 0.015);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.32s ease;
+    }
+
+    .day-node.empty { opacity: 0.2; pointer-events: none; }
+
+    .day-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-dim);
+      z-index: 2;
+    }
+
+    .day-node.has-memory {
+      cursor: pointer;
+      border-color: rgba(244, 241, 234, 0.24);
+      background: var(--bg-elevated);
+    }
+
+    .day-node.has-memory .day-num {
+      color: #fff;
+      font-weight: 600;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.95);
+    }
+
+    .island-micro {
+      position: absolute;
+      inset: 5px;
+      border-radius: 12px;
+      overflow: hidden;
+      opacity: 0.55;
+      transition: all 0.32s ease;
+      z-index: 1;
+    }
+
+    .island-micro img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .day-node.has-memory:hover {
+      z-index: 25;
+      transform: scale(1.75);
+      border-color: var(--accent);
+      box-shadow: 0 22px 50px rgba(0,0,0,0.88);
+    }
+
+    .day-node.has-memory:hover .island-micro {
+      inset: 0;
+      border-radius: 15px;
+      opacity: 1;
+    }
+
+    .lens-caption {
+      position: absolute;
+      inset: auto 0 0 0;
+      padding: 16px 7px 6px;
+      background: linear-gradient(180deg, transparent, rgba(10, 9, 8, 0.95));
+      opacity: 0;
+      transition: opacity 0.22s ease;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .day-node.has-memory:hover .lens-caption { opacity: 1; }
+
+    .lens-caption-title {
+      font-size: 7.5px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: #fff;
+    }
+
+    .lens-caption-meta {
+      font-family: var(--font-mono);
+      font-size: 6.5px;
+      color: var(--accent);
+      margin-top: 2px;
+    }
+
+    /* Проверка лентой (серия листов 4:5) */
+    .series-strip-grid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .series-strip-grid.active { display: grid; }
+
+    .series-sheet-card {
+      aspect-ratio: 4 / 5;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: #12100e;
+      cursor: pointer;
+      transition: transform 0.22s ease, border-color 0.22s ease;
+    }
+
+    .series-sheet-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .series-sheet-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Полка папок */
+    .folder-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line-subtle);
+      cursor: pointer;
+      color: var(--ink-primary);
+      text-align: left;
+      width: 100%;
+      transition: all 0.18s ease;
+    }
+
+    .folder-item:hover {
+      border-color: var(--accent);
+      transform: translateX(3px);
+    }
+
+    .folder-thumb {
+      width: 46px;
+      height: 58px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .folder-name {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .folder-meta {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--ink-secondary);
+      margin-top: 3px;
+    }
+
+    /* ============================================================
+       ПОЛНОЭКРАННЫЙ РАЗВОРОТ «ПРОЯВКА» (ГЕНЕРАТИВНЫЙ 4:5 ХОЛСТ)
+       ============================================================ */
+    .spread-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 7, 7, 0.94);
+      backdrop-filter: blur(18px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .spread-overlay.open { display: flex; }
+
+    .spread-book {
+      width: 100%;
+      max-width: 1120px;
+      max-height: 94vh;
+      background: #141210;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 26px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      overflow: hidden;
+      box-shadow: 0 32px 96px rgba(0,0,0,0.9);
+    }
+
+    @media (max-width: 900px) {
+      .spread-book {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+      }
+    }
+
+    .canvas-stage {
+      background: #0a0908;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #proyavkaCanvas {
+      width: min(440px, 76vw);
+      aspect-ratio: 4 / 5;
+      height: auto;
+      border-radius: 14px;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.85);
+      background: #111;
+    }
+
+    .stage-caption {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ink-dim);
+    }
+
+    .live-dot.active {
+      background: #22c55e;
+      box-shadow: 0 0 10px #22c55e;
+    }
+
+    .spread-page {
+      padding: 24px 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    .spread-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .spread-folder-title {
+      font-family: var(--font-serif);
+      font-size: 30px;
+      line-height: 1.15;
+      margin: 6px 0;
+    }
+
+    .spread-story {
+      font-size: 14.5px;
+      line-height: 1.62;
+      color: var(--ink-primary);
+      opacity: 0.94;
+    }
+
+    .source-thumbs {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .source-thumbs img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    .track-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .track-art {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #27272a;
+      flex-shrink: 0;
+    }
+
+    .axes-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--ink-secondary);
+      display: grid;
+      gap: 8px;
+    }
+
+    .axes-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .axis-pill {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      color: var(--ink-primary);
+    }
+
+    .palette-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .swatch-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+
+    .spread-nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Модалка создания дня */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 7, 7, 0.85);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 120;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .composer-modal {
+      background: var(--bg-surface);
+      border: 1px solid rgba(244, 241, 234, 0.16);
+      border-radius: 24px;
+      max-width: 580px;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--ink-secondary);
+      margin-top: 4px;
+    }
+
+    textarea, input[type="text"], input[type="date"] {
+      width: 100%;
+      background: var(--bg-obsidian);
+      border: 1px solid var(--line-subtle);
+      color: var(--ink-primary);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    .song-search-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .song-results {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 170px;
+      overflow-y: auto;
+    }
+
+    .song-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--line-subtle);
+      cursor: pointer;
+      color: var(--ink-primary);
+      text-align: left;
+    }
+
+    .song-option:hover, .song-option.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .song-option img {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+    }
+
+    .thumbs-preview {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .thumbs-preview img {
+      width: 54px;
+      height: 54px;
+      object-fit: cover;
+      border-radius: 9px;
+      border: 1px solid var(--line-subtle);
+    }
+
+    .error-banner {
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div>
+        <div class="kicker">ARTTECH // ПРОЯВКА — ГЕНЕРАТИВНЫЙ ДНЕВНИК АТМОСФЕРЫ</div>
+        <h1 class="title">Архипелаг прожитых дней</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="toggleSeriesViewBtn" type="button">☷ Проверка лентой (4:5)</button>
+        <button class="btn" id="resetSeedBtn" type="button">Пересобрать примеры</button>
+        <button class="btn btn-primary" id="openComposerBtn" type="button">+ Проявить день</button>
+      </div>
+    </header>
+
+    <main class="observatory-grid">
+      <section class="atlas-panel">
+        <div class="atlas-top">
+          <div class="month-controls">
+            <button class="btn" id="prevMonthBtn" type="button" style="padding:6px 11px;">←</button>
+            <div class="month-title" id="monthTitleLabel">Июль 2026</div>
+            <button class="btn" id="nextMonthBtn" type="button" style="padding:6px 11px;">→</button>
+          </div>
+          <div style="font-size:12px; color:var(--ink-secondary);" id="atlasHint">
+            Наведите лупу на остров даты или откройте лист 4:5 для проявки под музыку.
+          </div>
+        </div>
+
+        <div id="calendarContainer">
+          <div class="weekdays">
+            <div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div>
+          </div>
+          <div class="calendar-map" id="calendarMap"></div>
+        </div>
+
+        <div class="series-strip-grid" id="seriesStripGrid"></div>
+      </section>
+
+      <aside class="folders-shelf">
+        <div style="font-size:14px; font-weight:600;">Папки воспоминаний</div>
+        <div style="font-size:12px; color:var(--ink-secondary); margin-top:3px;">
+          Каждый день хранится по дате с коротким названием, сгенерированным по смыслу записи.
+        </div>
+        <div class="folder-list" id="folderList"></div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Полноэкранный разворот дня с генеративным 4:5 canvas -->
+  <div class="spread-overlay" id="spreadOverlay">
+    <div class="spread-book">
+      <div class="canvas-stage">
+        <canvas id="proyavkaCanvas" width="800" height="1000"></canvas>
+        <div class="stage-caption">
+          <span class="live-dot" id="audioLiveDot"></span>
+          <span id="canvasStatusText">Лист 4:5 проявлен · включите трек, чтобы увидеть реакцию на бит</span>
+        </div>
+      </div>
+
+      <div class="spread-page">
+        <div>
+          <div class="spread-header-row">
+            <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent);" id="spreadDateLabel">2026-07-18</span>
+            <button class="btn" id="closeSpreadBtn" type="button" style="padding:6px 12px; font-size:12px;">Закрыть ✕</button>
+          </div>
+
+          <h2 class="spread-folder-title" id="spreadFolderTitle">Летний подъём на пик Фурманова</h2>
+          <p class="spread-story" id="spreadStory"></p>
+          <div class="source-thumbs" id="spreadSourceThumbs"></div>
+        </div>
+
+        <!-- Плеер песни + Озвучка текста -->
+        <div class="track-box">
+          <div class="track-row">
+            <img class="track-art" id="spreadTrackArt" src="" alt="Обложка" />
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="spreadTrackTitle">Friday</div>
+              <div style="font-size:11.5px; color:var(--ink-secondary);" id="spreadTrackArtist">Riton & Nightcrawlers · 2021</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button class="btn btn-primary" id="playTrackBtn" type="button" style="padding:7px 14px; font-size:12px;">▶ Проявить под песню (30с)</button>
+            <button class="btn" id="voiceoverBtn" type="button" style="padding:7px 13px; font-size:12px;">🗣 Озвучить запись</button>
+            <button class="btn" id="exportZipBtn" type="button" style="padding:7px 13px; font-size:12px;">↓ Скачать папку (.zip)</button>
+          </div>
+        </div>
+
+        <!-- Объяснимая логика и палитра пикселей -->
+        <div class="axes-box">
+          <div id="spreadExplanation" style="color:var(--ink-primary);"></div>
+          <div class="axes-pills" id="spreadAxesPills"></div>
+          <div class="palette-row" id="spreadPaletteRow"></div>
+        </div>
+
+        <div class="spread-nav">
+          <button class="btn" id="prevDayBtn" type="button">← Предыдущая запись</button>
+          <button class="btn" id="deleteDayBtn" type="button" style="color:#fca5a5; border-color:rgba(252,165,165,0.25);">Удалить</button>
+          <button class="btn" id="nextDayBtn" type="button">Следующая запись →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка создания дня (обязательны текст, фото и песня) -->
+  <div class="modal-backdrop" id="composerModal">
+    <div class="composer-modal">
+      <div class="spread-header-row" style="margin-bottom:14px;">
+        <h2 style="font-family:var(--font-serif); font-size:26px;">Новая проявка дня</h2>
+        <button class="btn" id="closeComposerBtn" type="button" style="padding:6px 12px;">✕</button>
+      </div>
+
+      <div class="error-banner" id="formErrorBanner"></div>
+
+      <form id="newDayForm" novalidate>
+        <div class="field">
+          <label for="dateInput">Дата дня (обязательно)</label>
+          <input id="dateInput" type="date" value="2026-07-19" required />
+        </div>
+
+        <div class="field">
+          <label for="storyInput">Расскажите, как прошёл день (обязательно)</label>
+          <textarea id="storyInput" placeholder="Опишите погоду, свет, людей рядом, звуки и события..." required></textarea>
+        </div>
+
+        <div class="field">
+          <label for="photosInput">Фотографии дня (обязательно, минимум 1 снимок)</label>
+          <input id="photosInput" type="file" accept="image/*" multiple required />
+          <div class="field-hint">Алгоритм k-means извлечёт доминирующие цвета из пикселей ваших фото.</div>
+          <div class="thumbs-preview" id="composerThumbs"></div>
+        </div>
+
+        <div class="field">
+          <label>Песня дня (обязательно — найдите в каталоге или загрузите аудиофайл)</label>
+          <div class="song-search-row">
+            <input id="songQueryInput" type="text" placeholder="Например: Riton Nightcrawlers Friday или Frank Sinatra" />
+            <button class="btn" id="searchSongBtn" type="button">Найти</button>
+          </div>
+          <div class="song-results" id="songResults"></div>
+          <div style="margin-top:8px;">
+            <input id="localAudioInput" type="file" accept="audio/*" />
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="submitDayBtn" type="submit" style="width:100%; justify-content:center; margin-top:6px;">
+          Проявить лист 4:5 и сохранить в папку
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. INDEXEDDB С КЛЮЧОМ ПО ISO-ДАТЕ (YYYY-MM-DD)
+    // =========================================================================
+    const DB_NAME = 'ProyavkaDiaryDB_V1';
+    const STORE = 'entries';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            db.createObjectStore(STORE, { keyPath: 'date' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function getAllEntries() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.date.localeCompare(b.date)));
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function putEntry(entry) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(entry);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function deleteEntry(dateKey) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(dateKey);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function replaceAllEntries(list) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        const store = tx.objectStore(STORE);
+        store.clear();
+        list.forEach(item => store.put(item));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // =========================================================================
+    // 2. K-MEANS ИЗВЛЕЧЕНИЕ ДОМИНИРУЮЩИХ ЦВЕТОВ И МЕТРИК СВЕТА ИЗ ПИКСЕЛЕЙ ФОТО
+    // =========================================================================
+    function loadImageElement(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    async function analyzePhotosKMeans(photoDataUrls, k = 5) {
+      const samples = [];
+      for (const url of photoDataUrls.slice(0, 4)) {
+        try {
+          const img = await loadImageElement(url);
+          const c = document.createElement('canvas');
+          const ctx = c.getContext('2d');
+          c.width = 48;
+          c.height = 48;
+          ctx.drawImage(img, 0, 0, 48, 48);
+          const data = ctx.getImageData(0, 0, 48, 48).data;
+          for (let i = 0; i < data.length; i += 16) {
+            samples.push([data[i], data[i + 1], data[i + 2]]);
+          }
+        } catch {}
+      }
+
+      if (!samples.length) {
+        return {
+          palette: ['#f59e0b', '#38bdf8', '#10b981', '#fef3c7', '#1e293b'],
+          avgWarmth: 0.6,
+          avgLuminance: 0.55
+        };
+      }
+
+      // Инициализируем центроиды равномерно по выборке
+      let centroids = Array.from({ length: k }, (_, idx) => {
+        const pos = Math.floor((idx / k) * samples.length);
+        return [...samples[pos]];
+      });
+
+      for (let iter = 0; iter < 6; iter++) {
+        const sums = Array.from({ length: k }, () => [0, 0, 0, 0]);
+        for (const px of samples) {
+          let bestIdx = 0;
+          let bestDist = Infinity;
+          for (let c = 0; c < k; c++) {
+            const dr = px[0] - centroids[c][0];
+            const dg = px[1] - centroids[c][1];
+            const db = px[2] - centroids[c][2];
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestDist) {
+              bestDist = d;
+              bestIdx = c;
+            }
+          }
+          sums[bestIdx][0] += px[0];
+          sums[bestIdx][1] += px[1];
+          sums[bestIdx][2] += px[2];
+          sums[bestIdx][3] += 1;
+        }
+        centroids = centroids.map((old, c) =>
+          sums[c][3] > 0
+            ? [Math.round(sums[c][0] / sums[c][3]), Math.round(sums[c][1] / sums[c][3]), Math.round(sums[c][2] / sums[c][3])]
+            : old
+        );
+      }
+
+      // Сортируем от самого насыщенного/яркого к тёмному
+      centroids.sort((a, b) => (b[0] + b[1] + b[2]) - (a[0] + a[1] + a[2]));
+      const palette = centroids.map(([r, g, b]) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''));
+
+      let warmthSum = 0;
+      let lumSum = 0;
+      for (const [r, g, b] of samples) {
+        warmthSum += Math.max(0, Math.min(1, (r - b + 255) / 510));
+        lumSum += (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      }
+
+      return {
+        palette,
+        avgWarmth: Number((warmthSum / samples.length).toFixed(2)),
+        avgLuminance: Number((lumSum / samples.length).toFixed(2))
+      };
+    }
+
+    // =========================================================================
+    // 3. ВЫЗОВ NETLIFY FUNCTION + ЛОКАЛЬНЫЙ СЕМАНТИЧЕСКИЙ FALLBACK
+    // =========================================================================
+    async function requestDayAxes(text, track, photoStats) {
+      try {
+        const res = await fetch('/api/analyze-day', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, track, photoStats })
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch {}
+
+      // Fallback при открытии файла напрямую без Netlify Dev
+      return localSemanticFallback(text, track, photoStats);
+    }
+
+    function localSemanticFallback(text, track, photoStats) {
+      const tokens = text
+        .toLowerCase()
+        .replace(/[^а-яёa-z0-9\s-]/gi, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+
+      const hasWord = (prefixes) =>
+        tokens.some((tok) => prefixes.some((p) => (p.endsWith('*') ? tok.startsWith(p.slice(0, -1)) : tok === p)));
+
+      const isMountainHike = hasWord(['пик*', 'гор*', 'подъем*', 'подъём*', 'троп*', 'вершин*', 'фурманов*', 'поход*']) && !hasWord(['город*']);
+      const isFriends = hasWord(['друз*', 'одноклассник*', 'ребят*', 'вместе', 'компани*', 'смея*', 'танц*']);
+      const isSummerSun = hasWord(['лет*', 'солнц*', 'жар*', 'ярк*', 'полдень', 'небо']);
+      const isNightCalm = hasWord(['ноч*', 'тишин*', 'тих*', 'дожд*', 'один*', 'трамва*', 'пуст*', 'окн*', 'сумерк*', 'ламп*']);
+
+      const titleArtist = `${track.title || ''} ${track.artist || ''}`.toLowerCase();
+      const genre = String(track.genre || '').toLowerCase();
+      const year = Number(track.releaseYear) || 2020;
+
+      let estimatedBpm = 98;
+      if (/friday|riton|nightcrawlers/.test(titleArtist)) estimatedBpm = 123;
+      else if (/dance|electronic|house|pop/.test(genre)) estimatedBpm = 120;
+      else if (/jazz|ambient|classical|piano/.test(genre)) estimatedBpm = 72;
+
+      let energy = Math.max(0.15, Math.min(0.98, (estimatedBpm - 60) / 80));
+      if (isMountainHike || isFriends) energy = Math.max(energy, 0.88);
+      if (isNightCalm) energy = Math.min(energy, 0.32);
+
+      let warmth = photoStats.avgWarmth;
+      if (isSummerSun || isMountainHike) warmth = Math.max(warmth, 0.85);
+      if (isNightCalm) warmth = Math.min(warmth, 0.36);
+
+      const crowdDensity = (isFriends || isMountainHike) ? 0.9 : (isNightCalm ? 0.16 : 0.48);
+      const eraGrain = year >= 2019 ? 0.03 : (year >= 2005 ? 0.25 : 0.6);
+      const lightAngle = (isSummerSun || isMountainHike) ? 'high_noon' : (isNightCalm ? 'night_lamp' : 'dusk');
+
+      let folderName = 'Снимок прожитого дня';
+      if (isMountainHike && hasWord(['фурманов*'])) folderName = 'Летний подъём на пик Фурманова';
+      else if (isMountainHike) folderName = 'Летний подъём в горы с друзьями';
+      else if (isNightCalm) folderName = 'Тихий ночной дождь за стеклом';
+      else if (isFriends) folderName = 'Шумный день вместе с друзьями';
+      else {
+        const meaningful = tokens.filter(w => w.length > 3).slice(0, 4);
+        if (meaningful.length >= 2) {
+          const s = meaningful.join(' ');
+          folderName = s.charAt(0).toUpperCase() + s.slice(1);
+        }
+      }
+
+      return {
+        folder_name: folderName,
+        energy: Number(energy.toFixed(2)),
+        warmth: Number(warmth.toFixed(2)),
+        crowd_density: Number(crowdDensity.toFixed(2)),
+        era_grain: Number(eraGrain.toFixed(2)),
+        light_angle: lightAngle,
+        estimated_bpm: estimatedBpm,
+        voice_rate: Number((0.88 + energy * 0.28).toFixed(2)),
+        voice_pitch: Number((0.94 + warmth * 0.12).toFixed(2)),
+        explanation:
+          `Музыка (${estimatedBpm} BPM, релиз ${year} г.) задала короткий ритмичный шаг мазков и минимальное зерно (${Math.round(eraGrain * 100)}%). ` +
+          `${crowdDensity > 0.65 ? 'Компания друзей и активное движение собрали фото в плотный коллаж в духе Матисса со светом сверху.' : 'Спокойный ночной тон оставил широкие поля воздуха в духе Ма и камерный свет.'}`
+      };
+    }
+
+    // =========================================================================
+    // 4. ГЕНЕРАТИВНЫЙ 4:5 ХОЛСТ («ПРОЯВКА») + WEB AUDIO ДЕТЕКТОР БИТА
+    // =========================================================================
+    const canvas = document.getElementById('proyavkaCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let audioEl = new Audio();
+    audioEl.crossOrigin = 'anonymous';
+    let audioCtx = null;
+    let analyser = null;
+    let freqData = null;
+    let animFrameId = null;
+
+    let currentRenderState = {
+      entry: null,
+      loadedImages: [],
+      beatPhase: 0,
+      photoIndex: 0,
+      lastBeatTime: 0,
+      strokes: []
+    };
+
+    function seedDeterministicStrokes(entry) {
+      const axes = entry.axes;
+      const count = Math.round(28 + axes.energy * 95);
+      const strokes = [];
+      let seed = entry.date.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      const rand = () => {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      };
+
+      for (let i = 0; i < count; i++) {
+        strokes.push({
+          nx: rand(),
+          ny: rand(),
+          baseLen: 14 + (1 - axes.energy) * 34 + rand() * 18,
+          thickness: 2.5 + axes.energy * 4.5,
+          angle: axes.energy > 0.65 ? (-0.45 + rand() * 0.9) : (rand() * 0.25 - 0.12),
+          colorIdx: Math.floor(rand() * entry.palette.length),
+          phaseOffset: rand() * Math.PI * 2
+        });
+      }
+      return strokes;
+    }
+
+    function drawGrainOverlay(width, height, intensity) {
+      if (intensity <= 0.05) return;
+      const step = 4;
+      ctx.save();
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          const v = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+          if (Math.abs(v) < intensity * 0.35) {
+            ctx.fillStyle = v > 0 ? `rgba(255,255,255,${intensity * 0.09})` : `rgba(0,0,0,${intensity * 0.14})`;
+            ctx.fillRect(x, y, step, step);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    function renderProyavkaFrame(bassEnergy = 0.25, highEnergy = 0.2) {
+      const entry = currentRenderState.entry;
+      if (!entry) return;
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const axes = entry.axes;
+      const pal = entry.palette;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // 1. Фон из извлечённой палитры фото
+      const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+      bgGrad.addColorStop(0, pal[pal.length - 1] || '#141210');
+      bgGrad.addColorStop(0.55, pal[1] || '#292524');
+      bgGrad.addColorStop(1, pal[0] || '#e5a93c');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // 2. Направленный свет (высокий летний полдень vs камерная ночная лампа)
+      ctx.save();
+      if (axes.light_angle === 'high_noon') {
+        const sunGrad = ctx.createRadialGradient(W * 0.5, -40, 20, W * 0.5, H * 0.35, W * 0.85);
+        sunGrad.addColorStop(0, `rgba(255, 250, 224, ${0.42 + bassEnergy * 0.18})`);
+        sunGrad.addColorStop(1, 'rgba(255, 250, 224, 0)');
+        ctx.fillStyle = sunGrad;
+        ctx.fillRect(0, 0, W, H);
+      } else if (axes.light_angle === 'night_lamp') {
+        const lampGrad = ctx.createRadialGradient(W * 0.72, H * 0.26, 10, W * 0.72, H * 0.26, W * 0.65);
+        lampGrad.addColorStop(0, `rgba(251, 191, 36, ${0.32 + bassEnergy * 0.15})`);
+        lampGrad.addColorStop(1, 'rgba(10, 9, 8, 0.72)');
+        ctx.fillStyle = lampGrad;
+        ctx.fillRect(0, 0, W, H);
+      } else {
+        const duskGrad = ctx.createLinearGradient(0, 0, 0, H);
+        duskGrad.addColorStop(0, 'rgba(251, 113, 133, 0.22)');
+        duskGrad.addColorStop(1, 'rgba(12, 10, 9, 0.75)');
+        ctx.fillStyle = duskGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+      ctx.restore();
+
+      // 3. Композиция фотографий (плотный декупаж Матисса при высокой crowd_density vs воздух Ма при низкой)
+      const imgs = currentRenderState.loadedImages;
+      if (imgs.length) {
+        if (axes.crowd_density >= 0.65) {
+          // Многослойные органические вырезки в духе Матисса, меняющие масштаб/акцент на сильную долю
+          const layouts = [
+            { x: 74, y: 145, w: 430, h: 460, rot: -0.045, color: pal[0] },
+            { x: 320, y: 240, w: 410, h: 450, rot: 0.05, color: pal[2] || pal[1] },
+            { x: 140, y: 440, w: 460, h: 360, rot: -0.025, color: pal[1] }
+          ];
+
+          layouts.forEach((box, idx) => {
+            const img = imgs[(currentRenderState.photoIndex + idx) % imgs.length];
+            const pulse = idx === 0 ? (1 + bassEnergy * 0.055) : (1 + highEnergy * 0.03);
+
+            ctx.save();
+            ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
+            ctx.rotate(box.rot + (idx % 2 === 0 ? 1 : -1) * bassEnergy * 0.025);
+            ctx.scale(pulse, pulse);
+
+            // Цветная подложка-вырезка Матисса
+            ctx.fillStyle = box.color;
+            ctx.beginPath();
+            ctx.moveTo(-box.w / 2 - 14, -box.h / 2 + 8);
+            ctx.lineTo(box.w / 2 + 12, -box.h / 2 - 12);
+            ctx.lineTo(box.w / 2 + 18, box.h / 2 + 14);
+            ctx.lineTo(-box.w / 2 - 10, box.h / 2 + 6);
+            ctx.closePath();
+            ctx.fill();
+
+            // Клиппинг фото внутри многоугольника
+            ctx.beginPath();
+            ctx.moveTo(-box.w / 2, -box.h / 2);
+            ctx.lineTo(box.w / 2, -box.h / 2 + 10);
+            ctx.lineTo(box.w / 2 - 8, box.h / 2);
+            ctx.lineTo(-box.w / 2 + 8, box.h / 2 - 10);
+            ctx.closePath();
+            ctx.clip();
+
+            ctx.drawImage(img, -box.w / 2, -box.h / 2, box.w, box.h);
+            ctx.restore();
+          });
+        } else {
+          // Уединённая композиция с широким воздухом (принцип Ма)
+          const img = imgs[currentRenderState.photoIndex % imgs.length];
+          const frameW = 470;
+          const frameH = 520;
+          const fx = (W - frameW) / 2;
+          const fy = 185;
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(244, 241, 234, 0.08)';
+          ctx.fillRect(fx - 12, fy - 12, frameW + 24, frameH + 24);
+          ctx.drawImage(img, fx, fy, frameW, frameH);
+          ctx.restore();
+        }
+      }
+
+      // 4. Ритмичные штрихи поверх сцены (реагируют на амплитуду трека)
+      ctx.save();
+      currentRenderState.strokes.forEach((st) => {
+        const sx = st.nx * W;
+        const sy = 120 + st.ny * (H - 280);
+        const dynamicLen = st.baseLen * (0.75 + bassEnergy * 1.15);
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(st.angle + Math.sin(currentRenderState.beatPhase + st.phaseOffset) * 0.14);
+        ctx.strokeStyle = pal[st.colorIdx % pal.length];
+        ctx.globalAlpha = 0.28 + highEnergy * 0.35;
+        ctx.lineWidth = st.thickness;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-dynamicLen / 2, 0);
+        ctx.lineTo(dynamicLen / 2, 0);
+        ctx.stroke();
+        ctx.restore();
+      });
+      ctx.restore();
+
+      // 5. Плёночное зерно (зависит от года релиза трека: для Friday 2021 — почти 0)
+      drawGrainOverlay(W, H, axes.era_grain);
+
+      // 6. Постоянный единый каркас листа 4:5 (шапка и подвал серии)
+      ctx.save();
+      ctx.fillStyle = 'rgba(10, 9, 8, 0.74)';
+      ctx.fillRect(0, 0, W, 96);
+      ctx.fillRect(0, H - 154, W, 154);
+
+      ctx.fillStyle = pal[0] || '#e5a93c';
+      ctx.font = '600 18px "JetBrains Mono", monospace';
+      ctx.fillText(`ПРОЯВКА // ${entry.date}`, 44, 44);
+
+      ctx.fillStyle = 'rgba(244, 241, 234, 0.72)';
+      ctx.font = '500 16px "JetBrains Mono", monospace';
+      ctx.fillText(`${axes.estimated_bpm} BPM · ${entry.track.releaseYear || '2021'} · ЗЕРНО ${Math.round(axes.era_grain * 100)}%`, 44, 72);
+
+      // Название папки в подвале листа
+      ctx.fillStyle = '#f4f1ea';
+      ctx.font = 'italic 600 40px "Cormorant Garamond", Georgia, serif';
+      ctx.fillText(entry.folder_name, 44, H - 94);
+
+      // Строка трека
+      ctx.fillStyle = pal[0] || '#e5a93c';
+      ctx.font = '500 18px "JetBrains Mono", monospace';
+      ctx.fillText(`♪ ${entry.track.title} — ${entry.track.artist}`, 44, H - 46);
+      ctx.restore();
+    }
+
+    function startAudioReactiveLoop() {
+      stopAudioReactiveLoop();
+
+      if (!audioCtx && audioEl.src) {
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+          const source = audioCtx.createMediaElementSource(audioEl);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 128;
+          freqData = new Uint8Array(analyser.frequencyBinCount);
+          source.connect(analyser);
+          analyser.connect(audioCtx.destination);
+        } catch {}
+      }
+
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+
+      function loop(now) {
+        let bass = 0.22;
+        let high = 0.18;
+
+        if (analyser && freqData && !audioEl.paused) {
+          analyser.getByteFrequencyData(freqData);
+          const bassSlice = freqData.slice(0, 6);
+          const highSlice = freqData.slice(12, 28);
+          bass = bassSlice.reduce((a, b) => a + b, 0) / (bassSlice.length * 255);
+          high = highSlice.reduce((a, b) => a + b, 0) / (highSlice.length * 255);
+
+          // Смена кадра в коллаже на сильную долю (downbeat)
+          const minBeatGapMs = (60 / (currentRenderState.entry?.axes?.estimated_bpm || 120)) * 1000 * 2;
+          if (bass > 0.64 && now - currentRenderState.lastBeatTime > minBeatGapMs) {
+            currentRenderState.photoIndex += 1;
+            currentRenderState.lastBeatTime = now;
+          }
+        }
+
+        currentRenderState.beatPhase += 0.08 + bass * 0.25;
+        renderProyavkaFrame(bass, high);
+        animFrameId = requestAnimationFrame(loop);
+      }
+      animFrameId = requestAnimationFrame(loop);
+    }
+
+    function stopAudioReactiveLoop() {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+
+    // =========================================================================
+    // 5. ГЕНЕРАЦИЯ ДЕМО-СНИМКОВ И ПРОГОН СТАРТОВЫХ ПРИМЕРОВ ЧЕРЕЗ ПАЙПЛАЙН
+    // =========================================================================
+    function makeProceduralPhoto(c1, c2, c3, label) {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="${c1}"/>
+              <stop offset="50%" stop-color="${c2}"/>
+              <stop offset="100%" stop-color="${c3}"/>
+            </linearGradient>
+          </defs>
+          <rect width="800" height="800" fill="url(#g)"/>
+          <polygon points="120,680 390,220 690,680" fill="#ffffff" opacity="0.24"/>
+          <circle cx="580" cy="190" r="95" fill="#fef08a" opacity="0.55"/>
+          <text x="48" y="745" fill="#ffffff" font-family="monospace" font-size="22" opacity="0.75">${label}</text>
+        </svg>`;
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    function fetchItunesTracksJsonp(term) {
+      return new Promise((resolve, reject) => {
+        const cbName = 'itunesCb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 7000);
+        function cleanup() {
+          clearTimeout(timeout);
+          delete window[cbName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+        window[cbName] = (data) => { cleanup(); resolve((data && data.results) || []); };
+        script.onerror = () => { cleanup(); reject(new Error('Network error')); };
+        script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=5&callback=${cbName}`;
+        document.body.appendChild(script);
+      });
+    }
+
+    async function buildPipelineEntry({ date, story, photos, trackQuery, fallbackTrack }) {
+      let track = { ...fallbackTrack };
+      try {
+        const found = await fetchItunesTracksJsonp(trackQuery);
+        const best = found.find(r => r.previewUrl) || found[0];
+        if (best) {
+          track = {
+            title: best.trackName,
+            artist: best.artistName,
+            genre: best.primaryGenreName || fallbackTrack.genre,
+            releaseYear: best.releaseDate ? Number(best.releaseDate.slice(0, 4)) : fallbackTrack.releaseYear,
+            artwork: (best.artworkUrl100 || '').replace('100x100', '300x300'),
+            previewUrl: best.previewUrl || ''
+          };
+        }
+      } catch {}
+
+      const photoStats = await analyzePhotosKMeans(photos, 5);
+      const axes = await requestDayAxes(story, track, photoStats);
+
+      const entry = {
+        date,
+        folder_name: axes.folder_name,
+        story,
+        photos,
+        track,
+        palette: photoStats.palette,
+        axes,
+        sheetPreviewDataUrl: ''
+      };
+
+      // Рендерим превью листа 4:5 тем же генеративным кодом для архива и ленты
+      const imgs = await Promise.all(photos.map(src => loadImageElement(src).catch(() => null)));
+      currentRenderState.entry = entry;
+      currentRenderState.loadedImages = imgs.filter(Boolean);
+      currentRenderState.strokes = seedDeterministicStrokes(entry);
+      renderProyavkaFrame(0.32, 0.25);
+      entry.sheetPreviewDataUrl = canvas.toDataURL('image/png');
+
+      return entry;
+    }
+
+    async function seedShowcaseDays() {
+      const furmanov = await buildPipelineEntry({
+        date: '2026-07-18',
+        story: 'Летний подъём на пик Фурманова с друзьями: яркое солнце высоко над хребтом, тёплый ветер, смех на привале и панорама гор на весь горизонт.',
+        photos: [
+          makeProceduralPhoto('#0284c7', '#f59e0b', '#10b981', 'FURMANOV PEAK // SUNLIT RIDGE'),
+          makeProceduralPhoto('#ea580c', '#facc15', '#38bdf8', 'FRIENDS SUMMIT // HIGH NOON'),
+          makeProceduralPhoto('#16a34a', '#eab308', '#0ea5e9', 'ALPINE TRAIL // SUMMER LIGHT')
+        ],
+        trackQuery: 'Riton Nightcrawlers Friday',
+        fallbackTrack: {
+          title: 'Friday (feat. Mufasa & Hypeman)',
+          artist: 'Riton & Nightcrawlers',
+          genre: 'Dance',
+          releaseYear: 2021,
+          artwork: '',
+          previewUrl: ''
+        }
+      });
+
+      const contrastNight = await buildPipelineEntry({
+        date: '2026-07-24',
+        story: 'Тихий ночной дождь за стеклом пустого трамвая после поздней репетиции. Капли стекают по окну, в наушниках медленное старое фортепиано и никого вокруг.',
+        photos: [
+          makeProceduralPhoto('#1e293b', '#334155', '#64748b', 'MIDNIGHT TRAM // RAIN WINDOW')
+        ],
+        trackQuery: 'Aphex Twin Avril 14th',
+        fallbackTrack: {
+          title: 'Avril 14th',
+          artist: 'Aphex Twin',
+          genre: 'Ambient Piano',
+          releaseYear: 2001,
+          artwork: '',
+          previewUrl: ''
+        }
+      });
+
+      await replaceAllEntries([furmanov, contrastNight]);
+    }
+
+    // =========================================================================
+    // 6. РЕНДЕР КАЛЕНДАРЯ ПО МЕСЯЦАМ, ЛЕНТЫ СЕРИИ И ПОЛКИ ПАПОК
+    // =========================================================================
+    let allEntries = [];
+    let viewYear = 2026;
+    let viewMonth = 6; // Июль (0-индекс)
+    let isSeriesView = false;
+    let activeDateKey = null;
+
+    const MONTH_NAMES = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+
+    function renderAllViews() {
+      document.getElementById('monthTitleLabel').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+      const calendarMap = document.getElementById('calendarMap');
+      calendarMap.innerHTML = '';
+
+      const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+      const leadingEmpty = (firstDay + 6) % 7;
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+      for (let i = 0; i < leadingEmpty; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day-node empty';
+        calendarMap.appendChild(empty);
+      }
+
+      const byDate = new Map(allEntries.map(e => [e.date, e]));
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const entry = byDate.get(iso);
+        const node = document.createElement('div');
+        node.className = 'day-node';
+
+        if (entry) {
+          node.classList.add('has-memory');
+          node.innerHTML = `
+            <div class="island-micro"><img src="${entry.sheetPreviewDataUrl || entry.photos[0]}" alt="" /></div>
+            <span class="day-num">${d}</span>
+            <div class="lens-caption">
+              <div class="lens-caption-title">${entry.folder_name}</div>
+              <div class="lens-caption-meta">${entry.axes.estimated_bpm} BPM</div>
+            </div>
+          `;
+          node.addEventListener('click', () => openEntrySpread(iso));
+        } else {
+          node.innerHTML = `<span class="day-num">${d}</span>`;
+        }
+        calendarMap.appendChild(node);
+      }
+
+      // Проверка лентой (серия 4:5)
+      const strip = document.getElementById('seriesStripGrid');
+      strip.innerHTML = '';
+      allEntries.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = 'series-sheet-card';
+        card.innerHTML = `<img src="${entry.sheetPreviewDataUrl || entry.photos[0]}" alt="${entry.folder_name}" />`;
+        card.addEventListener('click', () => openEntrySpread(entry.date));
+        strip.appendChild(card);
+      });
+
+      // Полка папок
+      const folderList = document.getElementById('folderList');
+      folderList.innerHTML = '';
+      allEntries.forEach(entry => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'folder-item';
+        btn.innerHTML = `
+          <img class="folder-thumb" src="${entry.sheetPreviewDataUrl || entry.photos[0]}" alt="" />
+          <div style="min-width:0; flex:1;">
+            <div class="folder-name">${entry.folder_name}</div>
+            <div class="folder-meta">${entry.date} · ${entry.track.title}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => openEntrySpread(entry.date));
+        folderList.appendChild(btn);
+      });
+    }
+
+    // =========================================================================
+    // 7. ПРОСМОТР РАЗВОРОТА, ОЗВУЧКА И ЭКСПОРТ ПАПКИ В ZIP
+    // =========================================================================
+    const spreadOverlay = document.getElementById('spreadOverlay');
+    const playTrackBtn = document.getElementById('playTrackBtn');
+    const audioLiveDot = document.getElementById('audioLiveDot');
+    const canvasStatusText = document.getElementById('canvasStatusText');
+
+    function stopPlaybackAndVoice() {
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      stopAudioReactiveLoop();
+      audioLiveDot.classList.remove('active');
+      playTrackBtn.textContent = '▶ Проявить под песню (30с)';
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    async function openEntrySpread(dateKey) {
+      const entry = allEntries.find(e => e.date === dateKey);
+      if (!entry) return;
+
+      activeDateKey = dateKey;
+      stopPlaybackAndVoice();
+
+      const [y, m] = dateKey.split('-').map(Number);
+      viewYear = y;
+      viewMonth = m - 1;
+      renderAllViews();
+
+      document.getElementById('spreadDateLabel').textContent = `${entry.date} // ПАПКА ДНЯ`;
+      document.getElementById('spreadFolderTitle').textContent = entry.folder_name;
+      document.getElementById('spreadStory').textContent = entry.story;
+
+      const thumbs = document.getElementById('spreadSourceThumbs');
+      thumbs.innerHTML = entry.photos.map(src => `<img src="${src}" alt="Исходный кадр" />`).join('');
+
+      document.getElementById('spreadTrackArt').src = entry.track.artwork || entry.photos[0];
+      document.getElementById('spreadTrackTitle').textContent = entry.track.title;
+      document.getElementById('spreadTrackArtist').textContent = `${entry.track.artist} · ${entry.track.genre || 'Music'} · ${entry.track.releaseYear || ''}`;
+
+      const ax = entry.axes;
+      document.getElementById('spreadExplanation').textContent = ax.explanation;
+      document.getElementById('spreadAxesPills').innerHTML = `
+        <span class="axis-pill">Энергия: ${Math.round(ax.energy * 100)}%</span>
+        <span class="axis-pill">Тепло: ${Math.round(ax.warmth * 100)}%</span>
+        <span class="axis-pill">Плотность: ${Math.round(ax.crowd_density * 100)}%</span>
+        <span class="axis-pill">Зерно эпохи: ${Math.round(ax.era_grain * 100)}%</span>
+        <span class="axis-pill">Свет: ${ax.light_angle}</span>
+      `;
+
+      const swatches = entry.palette.map(hex => `<span class="swatch-dot" style="background:${hex}" title="${hex}"></span>`).join('');
+      document.getElementById('spreadPaletteRow').innerHTML = `<span>Палитра из пикселей фото:</span> ${swatches}`;
+
+      // Загружаем картинки в холст и рисуем первый статичный кадр
+      const imgs = await Promise.all(entry.photos.map(src => loadImageElement(src).catch(() => null)));
+      currentRenderState.entry = entry;
+      currentRenderState.loadedImages = imgs.filter(Boolean);
+      currentRenderState.photoIndex = 0;
+      currentRenderState.strokes = seedDeterministicStrokes(entry);
+      renderProyavkaFrame(0.32, 0.25);
+
+      if (entry.track.previewUrl) {
+        audioEl.src = entry.track.previewUrl;
+        playTrackBtn.disabled = false;
+        canvasStatusText.textContent = 'Нажмите «Проявить под песню», чтобы запустить перерисовку по биту';
+      } else {
+        audioEl.removeAttribute('src');
+        playTrackBtn.disabled = true;
+        canvasStatusText.textContent = 'Аудиопревью недоступно (проверьте сеть или загрузите MP3)';
+      }
+
+      spreadOverlay.classList.add('open');
+    }
+
+    playTrackBtn.addEventListener('click', () => {
+      if (!audioEl.src) return;
+      if (audioEl.paused) {
+        audioEl.play().then(() => {
+          audioLiveDot.classList.add('active');
+          playTrackBtn.textContent = '❚❚ Пауза проявки';
+          canvasStatusText.textContent = 'Живая проявка: штрихи и вырезки реагируют на спектр трека';
+          startAudioReactiveLoop();
+        }).catch(() => {});
+      } else {
+        stopPlaybackAndVoice();
+        renderProyavkaFrame(0.32, 0.25);
+      }
+    });
+
+    audioEl.addEventListener('ended', () => {
+      stopPlaybackAndVoice();
+      renderProyavkaFrame(0.32, 0.25);
+    });
+
+    // Озвучка записи голосом, настроенным под энергию и тепло дня
+    document.getElementById('voiceoverBtn').addEventListener('click', () => {
+      const entry = currentRenderState.entry;
+      if (!entry || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+
+      const utter = new SpeechSynthesisUtterance(`${entry.folder_name}. ${entry.story}`);
+      utter.lang = 'ru-RU';
+      utter.rate = entry.axes.voice_rate || 1.0;
+      utter.pitch = entry.axes.voice_pitch || 1.0;
+      window.speechSynthesis.speak(utter);
+    });
+
+    // Экспорт папки дня в ZIP (лист 4:5 PNG + фото + текст + метаданные)
+    document.getElementById('exportZipBtn').addEventListener('click', async () => {
+      const entry = currentRenderState.entry;
+      if (!entry || typeof JSZip === 'undefined') return;
+
+      const zip = new JSZip();
+      const safeFolder = entry.folder_name.replace(/[\\/:*?"<>|]/g, '_');
+      const folder = zip.folder(`${entry.date}_${safeFolder}`);
+
+      // Готовый лист 4:5
+      const sheetDataUrl = canvas.toDataURL('image/png');
+      folder.file('proyavka_sheet_4x5.png', sheetDataUrl.split(',')[1], { base64: true });
+
+      // Текст и оси
+      folder.file('diary.txt', `${entry.folder_name}\nДата: ${entry.date}\nТрек: ${entry.track.title} — ${entry.track.artist}\n\n${entry.story}\n\nЛогика системы:\n${entry.axes.explanation}`);
+      folder.file('axes.json', JSON.stringify({ date: entry.date, folder_name: entry.folder_name, palette: entry.palette, axes: entry.axes, track: entry.track }, null, 2));
+
+      // Исходные фото
+      entry.photos.forEach((src, i) => {
+        if (src.startsWith('data:image/')) {
+          const ext = src.startsWith('data:image/svg') ? 'svg' : 'png';
+          folder.file(`photo_${i + 1}.${ext}`, src.split(',')[1], { base64: true });
+        }
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${entry.date}_${safeFolder}.zip`;
+      a.click();
+    });
+
+    document.getElementById('closeSpreadBtn').addEventListener('click', () => {
+      stopPlaybackAndVoice();
+      spreadOverlay.classList.remove('open');
+    });
+
+    document.getElementById('prevDayBtn').addEventListener('click', () => {
+      const idx = allEntries.findIndex(e => e.date === activeDateKey);
+      if (idx > 0) openEntrySpread(allEntries[idx - 1].date);
+    });
+
+    document.getElementById('nextDayBtn').addEventListener('click', () => {
+      const idx = allEntries.findIndex(e => e.date === activeDateKey);
+      if (idx >= 0 && idx < allEntries.length - 1) openEntrySpread(allEntries[idx + 1].date);
+    });
+
+    document.getElementById('deleteDayBtn').addEventListener('click', async () => {
+      if (!activeDateKey) return;
+      stopPlaybackAndVoice();
+      await deleteEntry(activeDateKey);
+      allEntries = await getAllEntries();
+      spreadOverlay.classList.remove('open');
+      renderAllViews();
+    });
+
+    // =========================================================================
+    // 8. ФОРМА НОВОЙ ПРОЯВКИ (ТЕКСТ + ФОТО + ПЕСНЯ ОБЯЗАТЕЛЬНЫ)
+    // =========================================================================
+    const composerModal = document.getElementById('composerModal');
+    const errorBanner = document.getElementById('formErrorBanner');
+    let selectedApiTrack = null;
+    let pendingPhotos = [];
+
+    function showFormError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = 'block';
+    }
+
+    document.getElementById('openComposerBtn').addEventListener('click', () => {
+      errorBanner.style.display = 'none';
+      selectedApiTrack = null;
+      pendingPhotos = [];
+      document.getElementById('songResults').innerHTML = '';
+      document.getElementById('composerThumbs').innerHTML = '';
+      composerModal.classList.add('open');
+    });
+
+    document.getElementById('closeComposerBtn').addEventListener('click', () => {
+      composerModal.classList.remove('open');
+    });
+
+    document.getElementById('searchSongBtn').addEventListener('click', async () => {
+      const q = document.getElementById('songQueryInput').value.trim();
+      const box = document.getElementById('songResults');
+      if (!q) return;
+      box.innerHTML = `<div style="font-size:12px; color:var(--ink-secondary); padding:6px;">Ищем «${q}»...</div>`;
+      try {
+        const list = await fetchItunesTracksJsonp(q);
+        box.innerHTML = '';
+        list.forEach(tr => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'song-option';
+          const yr = tr.releaseDate ? tr.releaseDate.slice(0, 4) : '';
+          btn.innerHTML = `
+            <img src="${tr.artworkUrl100 || ''}" alt="" />
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tr.trackName}</div>
+              <div style="font-size:11px; color:var(--ink-secondary);">${tr.artistName} · ${tr.primaryGenreName || ''} (${yr})</div>
+            </div>
+          `;
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.song-option').forEach(el => el.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedApiTrack = {
+              title: tr.trackName,
+              artist: tr.artistName,
+              genre: tr.primaryGenreName || 'Music',
+              releaseYear: yr ? Number(yr) : 2021,
+              artwork: (tr.artworkUrl100 || '').replace('100x100', '300x300'),
+              previewUrl: tr.previewUrl || ''
+            };
+          });
+          box.appendChild(btn);
+        });
+      } catch {
+        box.innerHTML = `<div style="font-size:12px; color:#fca5a5; padding:6px;">Каталог недоступен — загрузите локальный аудиофайл ниже.</div>`;
+      }
+    });
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('photosInput').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []).slice(0, 4);
+      pendingPhotos = await Promise.all(files.map(readFileAsDataUrl));
+      document.getElementById('composerThumbs').innerHTML = pendingPhotos.map(src => `<img src="${src}" alt="" />`).join('');
+    });
+
+    document.getElementById('newDayForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBanner.style.display = 'none';
+
+      const dateVal = document.getElementById('dateInput').value;
+      const story = document.getElementById('storyInput').value.trim();
+      const localAudio = document.getElementById('localAudioInput').files[0];
+      const songQuery = document.getElementById('songQueryInput').value.trim();
+
+      if (!dateVal) return showFormError('Укажите дату дня.');
+      if (!story) return showFormError('Напишите хотя бы несколько фраз о том, как прошёл день.');
+      if (!pendingPhotos.length) return showFormError('Прикрепите хотя бы одну фотографию дня — из её пикселей строится палитра.');
+
+      let track = selectedApiTrack;
+      if (!track && songQuery) {
+        try {
+          const found = await fetchItunesTracksJsonp(songQuery);
+          const best = found.find(r => r.previewUrl) || found[0];
+          if (best) {
+            track = {
+              title: best.trackName,
+              artist: best.artistName,
+              genre: best.primaryGenreName || 'Music',
+              releaseYear: best.releaseDate ? Number(best.releaseDate.slice(0, 4)) : 2021,
+              artwork: (best.artworkUrl100 || '').replace('100x100', '300x300'),
+              previewUrl: best.previewUrl || ''
+            };
+          }
+        } catch {}
+      }
+
+      if (localAudio) {
+        const dataUrl = await readFileAsDataUrl(localAudio);
+        track = {
+          title: localAudio.name.replace(/\.[^/.]+$/, ''),
+          artist: 'Локальный аудиофайл',
+          genre: 'Custom Audio',
+          releaseYear: 2026,
+          artwork: track?.artwork || '',
+          previewUrl: dataUrl
+        };
+      }
+
+      if (!track) {
+        return showFormError('Выберите песню из поиска или загрузите аудиофайл — без музыки лист не проявится.');
+      }
+
+      const submitBtn = document.getElementById('submitDayBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Проявляем лист 4:5...';
+
+      try {
+        const photoStats = await analyzePhotosKMeans(pendingPhotos, 5);
+        const axes = await requestDayAxes(story, track, photoStats);
+
+        const entry = {
+          date: dateVal,
+          folder_name: axes.folder_name,
+          story,
+          photos: pendingPhotos,
+          track,
+          palette: photoStats.palette,
+          axes,
+          sheetPreviewDataUrl: ''
+        };
+
+        const imgs = await Promise.all(pendingPhotos.map(src => loadImageElement(src).catch(() => null)));
+        currentRenderState.entry = entry;
+        currentRenderState.loadedImages = imgs.filter(Boolean);
+        currentRenderState.strokes = seedDeterministicStrokes(entry);
+        renderProyavkaFrame(0.32, 0.25);
+        entry.sheetPreviewDataUrl = canvas.toDataURL('image/png');
+
+        await putEntry(entry);
+        allEntries = await getAllEntries();
+
+        document.getElementById('newDayForm').reset();
+        composerModal.classList.remove('open');
+        renderAllViews();
+        openEntrySpread(dateVal);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Проявить лист 4:5 и сохранить в папку';
+      }
+    });
+
+    // Навигация по месяцам и переключатель «Проверка лентой»
+    document.getElementById('prevMonthBtn').addEventListener('click', () => {
+      viewMonth--;
+      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      renderAllViews();
+    });
+
+    document.getElementById('nextMonthBtn').addEventListener('click', () => {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      renderAllViews();
+    });
+
+    document.getElementById('toggleSeriesViewBtn').addEventListener('click', (e) => {
+      isSeriesView = !isSeriesView;
+      e.currentTarget.classList.toggle('btn-active', isSeriesView);
+      document.getElementById('calendarContainer').style.display = isSeriesView ? 'none' : 'block';
+      document.getElementById('seriesStripGrid').classList.toggle('active', isSeriesView);
+    });
+
+    document.getElementById('resetSeedBtn').addEventListener('click', async () => {
+      await seedShowcaseDays();
+      allEntries = await getAllEntries();
+      viewYear = 2026;
+      viewMonth = 6;
+      renderAllViews();
+    });
+
+    (async function init() {
+      allEntries = await getAllEntries();
+      if (!allEntries.length) {
+        await seedShowcaseDays();
+        allEntries = await getAllEntries();
+      }
+      renderAllViews();
+    })();
+  </script>
+</body>
+</html>
